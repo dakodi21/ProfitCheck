@@ -146,41 +146,55 @@ class Calculator {
         const result = localStorage.getItem(key);
         return result ? JSON.parse(result) : null;
     }
-
-    saveToHistory(calculation) {
-        const key = `history_${this.userId}`;
-        let history = JSON.parse(localStorage.getItem(key)) || [];
-        history.unshift(calculation); // Add to beginning
-        if (history.length > 10) history = history.slice(0, 10); // Keep only last 10
-        localStorage.setItem(key, JSON.stringify(history));
-    }
-
-    getHistory() {
-        const key = `history_${this.userId}`;
-        return JSON.parse(localStorage.getItem(key)) || [];
-    }
 }
 
 // Initialize
 const auth = new AuthSystem();
 let calculator = null;
 
-// Page Navigation
-function showPage(pageId) {
-    document.getElementById('registerPage').classList.add('hidden');
-    document.getElementById('loginPage').classList.add('hidden');
-    document.getElementById('mainApp').classList.add('hidden');
-    document.getElementById(pageId).classList.remove('hidden');
-}
+// Modal instances
+let loginModal = null;
+let registerModal = null;
 
-// Check session on load
+// Initialize modals
 window.addEventListener('DOMContentLoaded', () => {
+    loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+    registerModal = new bootstrap.Modal(document.getElementById('registerModal'));
+
     const user = auth.checkSession();
     if (user) {
-        loadMainApp(user);
-    } else {
-        showPage('loginPage');
+        // User is logged in, show calculator directly
+        document.getElementById('navLogin').style.display = 'none';
+        document.getElementById('navRegister').style.display = 'none';
+        // Add logout option to nav
+        const nav = document.querySelector('.navbar-nav');
+        const logoutLi = document.createElement('li');
+        logoutLi.className = 'nav-item';
+        logoutLi.innerHTML = '<a class="nav-link" href="#" id="navLogout">Logout</a>';
+        nav.appendChild(logoutLi);
+        document.getElementById('navLogout').addEventListener('click', () => {
+            if (confirm('Apakah Anda yakin ingin logout?')) {
+                auth.logout();
+                location.reload();
+            }
+        });
     }
+
+    // Navigation event listeners
+    document.getElementById('navLogin').addEventListener('click', (e) => {
+        e.preventDefault();
+        loginModal.show();
+    });
+
+    document.getElementById('navRegister').addEventListener('click', (e) => {
+        e.preventDefault();
+        registerModal.show();
+    });
+
+    document.getElementById('heroRegister').addEventListener('click', (e) => {
+        e.preventDefault();
+        registerModal.show();
+    });
 });
 
 // Register Form
@@ -219,12 +233,14 @@ document.getElementById('loginForm').addEventListener('submit', (e) => {
 // Navigation Links
 document.getElementById('showRegister').addEventListener('click', (e) => {
     e.preventDefault();
-    showPage('registerPage');
+    registerModal.hide();
+    loginModal.show();
 });
 
 document.getElementById('showLogin').addEventListener('click', (e) => {
     e.preventDefault();
-    showPage('loginPage');
+    loginModal.hide();
+    registerModal.show();
 });
 
 // Logout
@@ -233,7 +249,7 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
         auth.logout();
         showPage('loginPage');
         document.getElementById('calculatorForm').reset();
-        document.getElementById('results').classList.add('hidden');
+        document.getElementById('resultSection').classList.add('hidden');
     }
 });
 
@@ -248,9 +264,6 @@ function loadMainApp(user) {
     if (lastResult) {
         displayResult(lastResult);
     }
-
-    // Load history
-    loadHistory();
 }
 
 // Calculator Form
@@ -276,10 +289,6 @@ document.getElementById('calculatorForm').addEventListener('submit', (e) => {
     const result = calculator.calculate(data);
     displayResult(result);
 
-    // Save to history
-    calculator.saveToHistory(result);
-    loadHistory();
-
     // Reset form
     document.getElementById('calculatorForm').reset();
 });
@@ -302,45 +311,10 @@ function displayResult(result) {
     }, 100);
 }
 
-// Load History
-function loadHistory() {
-    const history = calculator.getHistory();
-    const historyDiv = document.getElementById('historyList');
-    historyDiv.innerHTML = '';
-
-    if (history.length === 0) {
-        historyDiv.innerHTML = '<div class="col-12"><div class="alert alert-info text-center"><i class="bi bi-info-circle me-2"></i>Belum ada riwayat perhitungan.</div></div>';
-        return;
+// Reset Button
+document.getElementById('resetBtn').addEventListener('click', () => {
+    if (confirm('Apakah Anda yakin ingin mereset form?')) {
+        document.getElementById('calculatorForm').reset();
+        document.getElementById('resultSection').classList.add('hidden');
     }
-
-    history.forEach(calc => {
-        const item = document.createElement('div');
-        item.className = 'col-md-6 col-lg-4 mb-3';
-        item.innerHTML = `
-            <div class="history-item h-100">
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <strong class="text-truncate">${calc.businessName}</strong>
-                    <small class="text-muted">${new Date(calc.timestamp).toLocaleString('id-ID')}</small>
-                </div>
-                <div class="mb-2">
-                    <i class="bi bi-cash me-1"></i>
-                    <small>Modal Awal: ${formatRupiah(calc.initialCapital)}</small>
-                </div>
-                <div class="mb-2">
-                    <i class="bi bi-graph-up me-1"></i>
-                    <small>Keuntungan: ${formatRupiah(calc.monthlyProfit)}</small>
-                </div>
-                <div class="mb-2">
-                    <i class="bi bi-pie-chart me-1"></i>
-                    <small>ROI: ${calc.roi.toFixed(2)}%</small>
-                </div>
-                <div class="text-end">
-                    <small class="text-muted">
-                        <i class="bi bi-calendar me-1"></i>${new Date(calc.timestamp).toLocaleDateString('id-ID')}
-                    </small>
-                </div>
-            </div>
-        `;
-        historyDiv.appendChild(item);
-    });
-}
+});
