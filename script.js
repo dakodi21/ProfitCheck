@@ -1,19 +1,117 @@
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('calculatorForm');
-    const resultsDiv = document.getElementById('results');
-    const historyDiv = document.getElementById('historyList');
+// Utility Functions
+function formatRupiah(angka) {
+    return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0
+    }).format(angka);
+}
 
-    // Load history from localStorage
-    loadHistory();
+function hashPassword(password) {
+    // Simple hash function (in production, use proper encryption)
+    let hash = 0;
+    for (let i = 0; i < password.length; i++) {
+        const char = password.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+    }
+    return hash.toString();
+}
 
-    form.addEventListener('submit', function(e) {
-        e.preventDefault();
+function showAlert(elementId, message, type) {
+    const alertDiv = document.getElementById(elementId);
+    alertDiv.innerHTML = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+}
 
-        const businessName = document.getElementById('businessName').value;
-        const initialCapital = parseFloat(document.getElementById('initialCapital').value);
-        const monthlyExpenses = parseFloat(document.getElementById('monthlyExpenses').value);
-        const expectedRevenue = parseFloat(document.getElementById('expectedRevenue').value);
-        const profitMargin = parseFloat(document.getElementById('profitMargin').value) / 100;
+// Authentication System
+class AuthSystem {
+    constructor() {
+        this.users = JSON.parse(localStorage.getItem('users')) || [];
+        this.currentUser = null;
+    }
+
+    register(name, email, password) {
+        // Check if email already exists
+        if (this.users.find(u => u.email === email)) {
+            return { success: false, message: 'Email sudah terdaftar!' };
+        }
+
+        const user = {
+            id: Date.now(),
+            name: name,
+            email: email,
+            password: hashPassword(password),
+            createdAt: new Date().toISOString()
+        };
+
+        this.users.push(user);
+        localStorage.setItem('users', JSON.stringify(this.users));
+        return { success: true, message: 'Registrasi berhasil!' };
+    }
+
+    login(email, password, remember = false) {
+        const user = this.users.find(u =>
+            u.email === email && u.password === hashPassword(password)
+        );
+
+        if (!user) {
+            return { success: false, message: 'Email atau password salah!' };
+        }
+
+        this.currentUser = user;
+        const session = {
+            userId: user.id,
+            name: user.name,
+            email: user.email,
+            remember: remember
+        };
+
+        localStorage.setItem('session', JSON.stringify(session));
+        return { success: true, user: user };
+    }
+
+    logout() {
+        this.currentUser = null;
+        localStorage.removeItem('session');
+    }
+
+    checkSession() {
+        const session = JSON.parse(localStorage.getItem('session'));
+        if (session && session.remember) {
+            const user = this.users.find(u => u.id === session.userId);
+            if (user) {
+                this.currentUser = user;
+                return user;
+            }
+        }
+        return null;
+    }
+
+    getCurrentUser() {
+        const session = JSON.parse(localStorage.getItem('session'));
+        if (session) {
+            return this.users.find(u => u.id === session.userId);
+        }
+        return null;
+    }
+}
+
+// Calculator System
+class Calculator {
+    constructor(userId) {
+        this.userId = userId;
+    }
+
+    calculate(data) {
+        const initialCapital = parseFloat(data.initialCapital);
+        const monthlyExpenses = parseFloat(data.monthlyExpenses);
+        const expectedRevenue = parseFloat(data.expectedRevenue);
+        const profitMargin = parseFloat(data.profitMargin) / 100;
 
         // Calculations
         const totalCapital = initialCapital + (monthlyExpenses * 12); // Assuming 1 year buffer
@@ -21,17 +119,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const breakEven = initialCapital / (expectedRevenue - monthlyExpenses);
         const roi = ((monthlyProfit * 12) / initialCapital) * 100;
 
-        // Display results
-        document.getElementById('totalCapital').textContent = formatCurrency(totalCapital);
-        document.getElementById('monthlyProfit').textContent = formatCurrency(monthlyProfit);
-        document.getElementById('breakEven').textContent = breakEven.toFixed(1) + ' bulan';
-        document.getElementById('roi').textContent = roi.toFixed(2) + '%';
-
-        resultsDiv.classList.remove('hidden');
-
-        // Save to history
-        const calculation = {
-            businessName,
+        const result = {
+            businessName: data.businessName,
             initialCapital,
             monthlyExpenses,
             expectedRevenue,
@@ -40,47 +129,218 @@ document.addEventListener('DOMContentLoaded', function() {
             monthlyProfit,
             breakEven,
             roi,
-            date: new Date().toLocaleString()
+            timestamp: new Date().toISOString()
         };
 
-        saveToHistory(calculation);
-        loadHistory();
-
-        // Reset form
-        form.reset();
-    });
-
-    function formatCurrency(amount) {
-        return 'Rp ' + amount.toLocaleString('id-ID');
+        this.saveResult(result);
+        return result;
     }
 
-    function saveToHistory(calculation) {
-        let history = JSON.parse(localStorage.getItem('profitCheckHistory')) || [];
+    saveResult(result) {
+        const key = `calculation_${this.userId}`;
+        localStorage.setItem(key, JSON.stringify(result));
+    }
+
+    getLastResult() {
+        const key = `calculation_${this.userId}`;
+        const result = localStorage.getItem(key);
+        return result ? JSON.parse(result) : null;
+    }
+
+    saveToHistory(calculation) {
+        const key = `history_${this.userId}`;
+        let history = JSON.parse(localStorage.getItem(key)) || [];
         history.unshift(calculation); // Add to beginning
         if (history.length > 10) history = history.slice(0, 10); // Keep only last 10
-        localStorage.setItem('profitCheckHistory', JSON.stringify(history));
+        localStorage.setItem(key, JSON.stringify(history));
     }
 
-    function loadHistory() {
-        const history = JSON.parse(localStorage.getItem('profitCheckHistory')) || [];
-        historyDiv.innerHTML = '';
+    getHistory() {
+        const key = `history_${this.userId}`;
+        return JSON.parse(localStorage.getItem(key)) || [];
+    }
+}
 
-        if (history.length === 0) {
-            historyDiv.innerHTML = '<p>Belum ada riwayat perhitungan.</p>';
-            return;
-        }
+// Initialize
+const auth = new AuthSystem();
+let calculator = null;
 
-        history.forEach(calc => {
-            const item = document.createElement('div');
-            item.className = 'history-item';
-            item.innerHTML = `
-                <strong>${calc.businessName}</strong><br>
-                Modal Awal: ${formatCurrency(calc.initialCapital)}<br>
-                Keuntungan Bulanan: ${formatCurrency(calc.monthlyProfit)}<br>
-                ROI: ${calc.roi.toFixed(2)}%<br>
-                <small>${calc.date}</small>
-            `;
-            historyDiv.appendChild(item);
-        });
+// Page Navigation
+function showPage(pageId) {
+    document.getElementById('registerPage').classList.add('hidden');
+    document.getElementById('loginPage').classList.add('hidden');
+    document.getElementById('mainApp').classList.add('hidden');
+    document.getElementById(pageId).classList.remove('hidden');
+}
+
+// Check session on load
+window.addEventListener('DOMContentLoaded', () => {
+    const user = auth.checkSession();
+    if (user) {
+        loadMainApp(user);
+    } else {
+        showPage('loginPage');
     }
 });
+
+// Register Form
+document.getElementById('registerForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = document.getElementById('regName').value;
+    const email = document.getElementById('regEmail').value;
+    const password = document.getElementById('regPassword').value;
+
+    const result = auth.register(name, email, password);
+
+    if (result.success) {
+        showAlert('registerAlert', result.message + ' Silakan login.', 'success');
+        setTimeout(() => showPage('loginPage'), 1500);
+    } else {
+        showAlert('registerAlert', result.message, 'danger');
+    }
+});
+
+// Login Form
+document.getElementById('loginForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
+    const remember = document.getElementById('rememberMe').checked;
+
+    const result = auth.login(email, password, remember);
+
+    if (result.success) {
+        loadMainApp(result.user);
+    } else {
+        showAlert('loginAlert', result.message, 'danger');
+    }
+});
+
+// Navigation Links
+document.getElementById('showRegister').addEventListener('click', (e) => {
+    e.preventDefault();
+    showPage('registerPage');
+});
+
+document.getElementById('showLogin').addEventListener('click', (e) => {
+    e.preventDefault();
+    showPage('loginPage');
+});
+
+// Logout
+document.getElementById('logoutBtn').addEventListener('click', () => {
+    if (confirm('Apakah Anda yakin ingin logout?')) {
+        auth.logout();
+        showPage('loginPage');
+        document.getElementById('calculatorForm').reset();
+        document.getElementById('results').classList.add('hidden');
+    }
+});
+
+// Load Main App
+function loadMainApp(user) {
+    document.getElementById('userName').textContent = user.name;
+    calculator = new Calculator(user.id);
+    showPage('mainApp');
+
+    // Load last calculation if exists
+    const lastResult = calculator.getLastResult();
+    if (lastResult) {
+        displayResult(lastResult);
+    }
+
+    // Load history
+    loadHistory();
+}
+
+// Calculator Form
+document.getElementById('calculatorForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+
+    const data = {
+        businessName: document.getElementById('businessName').value,
+        initialCapital: document.getElementById('initialCapital').value,
+        monthlyExpenses: document.getElementById('monthlyExpenses').value,
+        expectedRevenue: document.getElementById('expectedRevenue').value,
+        profitMargin: document.getElementById('profitMargin').value
+    };
+
+    // Validation
+    for (let key in data) {
+        if (key !== 'businessName' && (!data[key] || parseFloat(data[key]) < 0)) {
+            alert('Semua field harus diisi dengan nilai yang valid!');
+            return;
+        }
+    }
+
+    const result = calculator.calculate(data);
+    displayResult(result);
+
+    // Save to history
+    calculator.saveToHistory(result);
+    loadHistory();
+
+    // Reset form
+    document.getElementById('calculatorForm').reset();
+});
+
+// Display Result
+function displayResult(result) {
+    document.getElementById('totalCapital').textContent = formatRupiah(result.totalCapital);
+    document.getElementById('monthlyProfit').textContent = formatRupiah(result.monthlyProfit);
+    document.getElementById('breakEven').textContent = result.breakEven.toFixed(1) + ' bulan';
+    document.getElementById('roi').textContent = result.roi.toFixed(2) + '%';
+
+    document.getElementById('results').classList.remove('hidden');
+
+    // Smooth scroll to result
+    setTimeout(() => {
+        document.getElementById('results').scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest'
+        });
+    }, 100);
+}
+
+// Load History
+function loadHistory() {
+    const history = calculator.getHistory();
+    const historyDiv = document.getElementById('historyList');
+    historyDiv.innerHTML = '';
+
+    if (history.length === 0) {
+        historyDiv.innerHTML = '<div class="col-12"><div class="alert alert-info text-center"><i class="bi bi-info-circle me-2"></i>Belum ada riwayat perhitungan.</div></div>';
+        return;
+    }
+
+    history.forEach(calc => {
+        const item = document.createElement('div');
+        item.className = 'col-md-6 col-lg-4 mb-3';
+        item.innerHTML = `
+            <div class="history-item h-100">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <strong class="text-truncate">${calc.businessName}</strong>
+                    <small class="text-muted">${new Date(calc.timestamp).toLocaleString('id-ID')}</small>
+                </div>
+                <div class="mb-2">
+                    <i class="bi bi-cash me-1"></i>
+                    <small>Modal Awal: ${formatRupiah(calc.initialCapital)}</small>
+                </div>
+                <div class="mb-2">
+                    <i class="bi bi-graph-up me-1"></i>
+                    <small>Keuntungan: ${formatRupiah(calc.monthlyProfit)}</small>
+                </div>
+                <div class="mb-2">
+                    <i class="bi bi-pie-chart me-1"></i>
+                    <small>ROI: ${calc.roi.toFixed(2)}%</small>
+                </div>
+                <div class="text-end">
+                    <small class="text-muted">
+                        <i class="bi bi-calendar me-1"></i>${new Date(calc.timestamp).toLocaleDateString('id-ID')}
+                    </small>
+                </div>
+            </div>
+        `;
+        historyDiv.appendChild(item);
+    });
+}
