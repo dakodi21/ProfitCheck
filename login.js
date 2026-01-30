@@ -208,7 +208,10 @@ document.getElementById('registerForm').addEventListener('submit', (e) => {
 
     if (result.success) {
         showAlert('registerAlert', result.message + ' Silakan login.', 'success');
-        setTimeout(() => showPage('loginPage'), 1500);
+        setTimeout(() => {
+            registerModal.hide();
+            loginModal.show();
+        }, 1500);
     } else {
         showAlert('registerAlert', result.message, 'danger');
     }
@@ -243,21 +246,11 @@ document.getElementById('showLogin').addEventListener('click', (e) => {
     registerModal.show();
 });
 
-// Logout
-document.getElementById('logoutBtn').addEventListener('click', () => {
-    if (confirm('Apakah Anda yakin ingin logout?')) {
-        auth.logout();
-        showPage('loginPage');
-        document.getElementById('calculatorForm').reset();
-        document.getElementById('resultSection').classList.add('hidden');
-    }
-});
-
 // Load Main App
 function loadMainApp(user) {
-    document.getElementById('userName').textContent = user.name;
     calculator = new Calculator(user.id);
-    showPage('mainApp');
+    loginModal.hide();
+    registerModal.hide();
 
     // Load last calculation if exists
     const lastResult = calculator.getLastResult();
@@ -286,6 +279,11 @@ document.getElementById('calculatorForm').addEventListener('submit', (e) => {
         }
     }
 
+    // Create calculator instance if not exists (for non-logged-in users)
+    if (!calculator) {
+        calculator = new Calculator('guest');
+    }
+
     const result = calculator.calculate(data);
     displayResult(result);
 
@@ -311,10 +309,68 @@ function displayResult(result) {
     }, 100);
 }
 
-// Reset Button
-document.getElementById('resetBtn').addEventListener('click', () => {
-    if (confirm('Apakah Anda yakin ingin mereset form?')) {
-        document.getElementById('calculatorForm').reset();
-        document.getElementById('resultSection').classList.add('hidden');
+// Page Navigation System
+function showPage(pageName) {
+    // Check authentication for protected pages
+    if ((pageName === 'history' || pageName === 'user') && !auth.getCurrentUser()) {
+        alert('Silakan login terlebih dahulu untuk mengakses halaman ini.');
+        loginModal.show();
+        return;
     }
+
+    // Hide all sections
+    const sections = ['home', 'features', 'calculator', 'results', 'history', 'user'];
+    sections.forEach(section => {
+        const element = document.getElementById(section);
+        if (element) {
+            element.classList.add('hidden');
+        }
+    });
+
+    // Show selected section
+    const targetSection = document.getElementById(pageName);
+    if (targetSection) {
+        targetSection.classList.remove('hidden');
+
+        // Load page-specific content
+        if (pageName === 'history') {
+            displayHistory();
+        } else if (pageName === 'user') {
+            const user = auth.getCurrentUser();
+            if (user) {
+                loadUserDashboard(user);
+            }
+        }
+    }
+
+    // Update navigation active state
+    document.querySelectorAll('.navbar-nav .nav-link').forEach(link => {
+        link.classList.remove('active');
+    });
+
+    const activeLink = document.querySelector(`[data-page="${pageName}"]`);
+    if (activeLink) {
+        activeLink.classList.add('active');
+    }
+
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Navigation event listeners
+document.addEventListener('DOMContentLoaded', () => {
+    // Page navigation
+    document.querySelectorAll('[data-page]').forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const page = e.target.getAttribute('data-page');
+            showPage(page);
+        });
+    });
+
+    // Show home page by default
+    showPage('home');
 });
+
+// Calculator works without login for now - authentication is optional
+// Users can use the calculator immediately

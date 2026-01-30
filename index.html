@@ -22,13 +22,19 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="#home">Beranda</a>
+                        <a class="nav-link active" href="#home" data-page="home">Beranda</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#features">Fitur</a>
+                        <a class="nav-link" href="#features" data-page="features">Fitur</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#calculator">Kalkulator</a>
+                        <a class="nav-link" href="#calculator" data-page="calculator">Kalkulator</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#history" data-page="history" id="navHistory" style="display: none;">Riwayat</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#user" data-page="user" id="navUser" style="display: none;">Akun</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="#login" id="navLogin">Login</a>
@@ -212,6 +218,79 @@
                                         </div>
                                         <h5>ROI (Return on Investment)</h5>
                                         <div class="result-value" id="roi">0%</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- History Section -->
+    <section id="history" class="py-5 bg-light hidden">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-10">
+                    <div class="card shadow-lg border-0">
+                        <div class="card-header bg-info text-white">
+                            <h3 class="card-title mb-0">
+                                <i class="bi bi-clock-history me-2"></i>Riwayat Perhitungan
+                            </h3>
+                        </div>
+                        <div class="card-body p-4">
+                            <div id="historyList">
+                                <p class="text-muted text-center">Belum ada riwayat perhitungan.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- User Dashboard Section -->
+    <section id="user" class="py-5 bg-light hidden">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div class="card shadow-lg border-0">
+                        <div class="card-header bg-primary text-white">
+                            <h3 class="card-title mb-0">
+                                <i class="bi bi-person-circle me-2"></i>Dashboard Akun
+                            </h3>
+                        </div>
+                        <div class="card-body p-4">
+                            <div class="row">
+                                <div class="col-md-6 mb-4">
+                                    <div class="user-info-card h-100">
+                                        <div class="user-icon">
+                                            <i class="bi bi-person-fill"></i>
+                                        </div>
+                                        <h5>Informasi Akun</h5>
+                                        <div class="user-details">
+                                            <p><strong>Nama:</strong> <span id="userName">Loading...</span></p>
+                                            <p><strong>Email:</strong> <span id="userEmail">Loading...</span></p>
+                                            <p><strong>Bergabung:</strong> <span id="userJoinDate">Loading...</span></p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-4">
+                                    <div class="user-stats-card h-100">
+                                        <div class="stats-icon">
+                                            <i class="bi bi-bar-chart-line"></i>
+                                        </div>
+                                        <h5>Statistik Penggunaan</h5>
+                                        <div class="user-stats">
+                                            <p><strong>Total Perhitungan:</strong> <span id="totalCalculations">0</span></p>
+                                            <p><strong>Terakhir Login:</strong> <span id="lastLogin">Loading...</span></p>
+                                        </div>
+                                        <div class="mt-3">
+                                            <button class="btn btn-outline-danger btn-sm" id="logoutBtn">
+                                                <i class="bi bi-box-arrow-right me-1"></i>Logout
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
