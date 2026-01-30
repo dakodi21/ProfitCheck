@@ -137,14 +137,22 @@ class Calculator {
     }
 
     saveResult(result) {
-        const key = `calculation_${this.userId}`;
-        localStorage.setItem(key, JSON.stringify(result));
+        const key = `history_${this.userId}`;
+        let history = JSON.parse(localStorage.getItem(key)) || [];
+        history.unshift(result); // Add to beginning
+        if (history.length > 10) history = history.slice(0, 10); // Keep only last 10
+        localStorage.setItem(key, JSON.stringify(history));
+    }
+
+    getHistory() {
+        const key = `history_${this.userId}`;
+        const history = localStorage.getItem(key);
+        return history ? JSON.parse(history) : [];
     }
 
     getLastResult() {
-        const key = `calculation_${this.userId}`;
-        const result = localStorage.getItem(key);
-        return result ? JSON.parse(result) : null;
+        const history = this.getHistory();
+        return history.length > 0 ? history[0] : null;
     }
 }
 
@@ -371,6 +379,95 @@ document.addEventListener('DOMContentLoaded', () => {
     // Show home page by default
     showPage('home');
 });
+
+// Display History
+function displayHistory() {
+    const user = auth.getCurrentUser();
+    if (!user) {
+        document.getElementById('historyList').innerHTML = '<p>Silakan login untuk melihat riwayat perhitungan.</p>';
+        return;
+    }
+
+    if (!calculator) {
+        calculator = new Calculator(user.id);
+    }
+
+    const history = calculator.getHistory();
+    const historyDiv = document.getElementById('historyList');
+
+    // Add filter form
+    const filterForm = `
+        <div class="mb-4">
+            <label for="historyFilter" class="form-label fw-semibold">Filter Riwayat:</label>
+            <select class="form-select" id="historyFilter">
+                <option value="all">Semua</option>
+                <option value="today">Hari Ini</option>
+                <option value="week">7 Hari Terakhir</option>
+                <option value="month">30 Hari Terakhir</option>
+            </select>
+        </div>
+    `;
+
+    historyDiv.innerHTML = filterForm;
+
+    if (history.length === 0) {
+        historyDiv.innerHTML += '<p class="text-muted text-center">Belum ada riwayat perhitungan.</p>';
+        return;
+    }
+
+    // Display history items
+    const historyContainer = document.createElement('div');
+    historyContainer.id = 'historyItems';
+    historyDiv.appendChild(historyContainer);
+
+    function renderHistory(filteredHistory) {
+        historyContainer.innerHTML = '';
+        filteredHistory.forEach(calc => {
+            const item = document.createElement('div');
+            item.className = 'history-item mb-3 p-3 border rounded';
+            item.innerHTML = `
+                <strong>${calc.businessName}</strong><br>
+                Modal Awal: ${formatRupiah(calc.initialCapital)}<br>
+                Keuntungan Bulanan: ${formatRupiah(calc.monthlyProfit)}<br>
+                ROI: ${calc.roi.toFixed(2)}%<br>
+                <small class="text-muted">${new Date(calc.timestamp).toLocaleString('id-ID')}</small>
+            `;
+            historyContainer.appendChild(item);
+        });
+    }
+
+    // Initial render
+    renderHistory(history);
+
+    // Filter event listener
+    document.getElementById('historyFilter').addEventListener('change', (e) => {
+        const filter = e.target.value;
+        const now = new Date();
+        let filteredHistory = history;
+
+        if (filter === 'today') {
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            filteredHistory = history.filter(calc => new Date(calc.timestamp) >= today);
+        } else if (filter === 'week') {
+            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            filteredHistory = history.filter(calc => new Date(calc.timestamp) >= weekAgo);
+        } else if (filter === 'month') {
+            const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+            filteredHistory = history.filter(calc => new Date(calc.timestamp) >= monthAgo);
+        }
+
+        renderHistory(filteredHistory);
+    });
+}
+
+// Load User Dashboard
+function loadUserDashboard(user) {
+    document.getElementById('userName').textContent = user.name;
+    document.getElementById('userEmail').textContent = user.email;
+    document.getElementById('userJoinDate').textContent = new Date(user.createdAt).toLocaleDateString('id-ID');
+    document.getElementById('totalCalculations').textContent = calculator ? calculator.getHistory().length : 0;
+    document.getElementById('lastLogin').textContent = new Date().toLocaleString('id-ID');
+}
 
 // Calculator works without login for now - authentication is optional
 // Users can use the calculator immediately
